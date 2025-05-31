@@ -1,9 +1,18 @@
+import os
+
+import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
 class LogisticRegressionModel:
+
+    def __init__(self, class_weight="balanced", solver="liblinear", random_state=42):
+        self.model = LogisticRegression(
+            class_weight=class_weight, solver=solver, random_state=random_state
+        )
+        self.scaler = StandardScaler()
 
     def train(self, features, label):
         # === Train-test split ===
@@ -12,14 +21,25 @@ class LogisticRegressionModel:
         )
 
         # === Feature scaling ===
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_test_scaled = self.scaler.transform(X_test)
 
         # === Train logistic regression ===
-        model = LogisticRegression(
-            class_weight="balanced", solver="liblinear", random_state=42
-        )
-        model.fit(X_train_scaled, y_train)
+        self.model.fit(X_train_scaled, y_train)
 
-        return model, X_test_scaled, y_test, scaler
+        return self.model, X_test_scaled, y_test, self.scaler
+
+    def dump_model(self,dump_to):
+        """
+            Saves the trained model and scaler to the specified directory.
+
+            Args:
+                dump_to (str): The path to the subfolder where the files should be saved.
+        """
+        os.makedirs(dump_to, exist_ok=True)
+
+        model_path = os.path.join(dump_to, "logistic_model.joblib")
+        scaler_path = os.path.join(dump_to, "logistic_scaler.joblib")
+
+        joblib.dump(self.model, model_path)
+        joblib.dump(self.scaler, scaler_path)

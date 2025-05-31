@@ -23,7 +23,6 @@ print("Classification Report:\n", classification_report(y_test, y_pred))
 print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
 
 # === Save model and scaler ===
-joblib.dump(model, "logistic_model.joblib")
-joblib.dump(scaler, "logistic_scaler.joblib")
+linRegModel.dump_model("model_dumps")
 
 print("✅ Model and scaler saved as 'logistic_model.joblib' and 'logistic_scaler.joblib'")
