@@ -1,12 +1,14 @@
 import os
 
-import joblib
+import pickle
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from models.Model import Model
 
-class LogisticRegressionModel:
+
+class LogisticRegressionModel(Model):
 
     def __init__(self, class_weight="balanced", solver="liblinear", random_state=42):
         self.model = LogisticRegression(
@@ -30,16 +32,13 @@ class LogisticRegressionModel:
         return self.model, X_test_scaled, y_test, self.scaler
 
     def dump_model(self,dump_to):
-        """
-            Saves the trained model and scaler to the specified directory.
 
-            Args:
-                dump_to (str): The path to the subfolder where the files should be saved.
-        """
         os.makedirs(dump_to, exist_ok=True)
 
-        model_path = os.path.join(dump_to, "logistic_model.joblib")
-        scaler_path = os.path.join(dump_to, "logistic_scaler.joblib")
+        model_path = os.path.join(dump_to, "logistic_model.pkl")
+        scaler_path = os.path.join(dump_to, "logistic_scaler.pkl")
 
-        joblib.dump(self.model, model_path)
-        joblib.dump(self.scaler, scaler_path)
+        with open(model_path, "wb") as f:
+            pickle.dump(self.model, f)
+        with open(scaler_path, "wb") as f:
+            pickle.dump(self.scaler, f)
