@@ -41,7 +41,7 @@ class LogisticRegressionModel(Model):
 
     def train(self):
         self.selected_model.fit(self.Xtrain, self.Ytrain)
-        return self.selected_model, self.Xtest, self.Ytest, self.scaler
+        return self.selected_model
 
     def tune(self, paramGrid: Dict, scoring_metrics: List[str]) -> List[GridSearchCVTuningResult]:
         """
@@ -135,12 +135,12 @@ class LogisticRegressionModel(Model):
 
         self.selected_model = self.tuned_models[key]
 
-    def dump_model(self, dump_to):
+    def dump_model(self, dump_to, suffix=""):
 
         os.makedirs(dump_to, exist_ok=True)
 
-        model_path = os.path.join(dump_to, "logistic_model.pkl")
-        scaler_path = os.path.join(dump_to, "logistic_scaler.pkl")
+        model_path = os.path.join(dump_to, f"logistic_model{suffix}.pkl")
+        scaler_path = os.path.join(dump_to, f"logistic_scaler{suffix}.pkl")
 
         with open(model_path, "wb") as f:
             pickle.dump(self.selected_model, f)

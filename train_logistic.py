@@ -45,26 +45,34 @@ def train_model():
     return linRegModel.train()
 
 
-model, X_test_scaled, y_test, scaler = train_model()
 
 
-def dump_model():
-    linRegModel.dump_model("model_dumps")
+
+def dump_model(model: LogisticRegressionModel,suffix: str):
+    model.dump_model("model_dumps")
     print("Model and scaler saved as 'logistic_model.joblib' and 'logistic_scaler.joblib'")
 
 
-def evaluate_model():
-    y_pred_proba = model.predict_proba(X_test_scaled)[:, 1]
-    y_pred = model.predict(X_test_scaled)
+def evaluate_model(model: LogisticRegressionModel):
+    y_pred_proba = model.selected_model.predict_proba(model.Xtest)[:, 1]
+    y_pred = model.selected_model.predict(model.Xtest)
 
-    print(f"AUC-ROC Score: {roc_auc_score(y_test, y_pred_proba):.4f}")
-    print("Classification Report:\n", classification_report(y_test, y_pred))
-    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    print(f"AUC-ROC Score: {roc_auc_score(model.Ytest, y_pred_proba):.4f}")
+    print("Classification Report:\n", classification_report(model.Ytest, y_pred))
+    print("Confusion Matrix:\n", confusion_matrix(model.Ytest, y_pred))
 
 
 def run():
-    evaluate_model()
-    dump_model()
+    linRegModel.select_model("roc_auc")
+    evaluate_model(linRegModel)
+    dump_model(linRegModel, "_roc_auc")
+    linRegModel.select_model("average_precision")
+    evaluate_model(linRegModel)
+    dump_model(linRegModel, "_average_precision")
+    linRegModel.select_model("f1")
+    evaluate_model(linRegModel)
+    dump_model(linRegModel, "f1")
+
 
 
 run()
