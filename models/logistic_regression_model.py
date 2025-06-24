@@ -8,19 +8,20 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 
 from models.Model import Model
+from models.gridsearchCV_tuning_result_vo import GridSearchCVTuningResult
 
 
 class LogisticRegressionModel(Model):
 
-    def __init__(self, features, label, class_weight="balanced", solver="liblinear", random_state=42):
+    def __init__(self, features, label):
 
         self.Ytest = None #Label for testing
         self.Ytrain = None #Label for training
         self.Xtest = None #features for testing
         self.Xtrain = None #features for training
 
-        self.model = self.build_base_model(class_weight, solver, random_state);
-        self.scaler = StandardScaler()
+        self.model = self.build_base_model()
+        self.scaler = self.set_scalar()
 
         self.split(features, label)
 
@@ -40,7 +41,7 @@ class LogisticRegressionModel(Model):
 
         return self.model, self.Xtest, self.Ytest, self.scaler
 
-    def tune(self, paramGrid: Dict) -> LogisticRegression:
+    def tune(self, paramGrid: Dict) -> GridSearchCVTuningResult:
         """
            Tunes the logistic regression model using grid search.
 
@@ -50,7 +51,7 @@ class LogisticRegressionModel(Model):
            Returns:
                LogisticRegression: The best estimator found during tuning.
         """
-        baseModel = LogisticRegression(class_weight='balanced', max_iter=500, random_state=42)
+        baseModel = self.build_base_model()
 
         # Wrap in GridSearch
         gridSearch = GridSearchCV(
@@ -66,16 +67,37 @@ class LogisticRegressionModel(Model):
         # Fit on training data
         gridSearch.fit(self.Xtrain, self.Ytrain)
 
-        # Store best model and params
-        print(f"[Tuning] Best ROC AUC: {gridSearch.best_score_:.4f}")
-        print(f"[Tuning] Best parameters: {gridSearch.best_params_}")
         self.model = gridSearch.best_estimator_
-        return self.model
 
-    def build_base_model(self,class_weight,solver,random_state):
+        return GridSearchCVTuningResult(
+        best_score=gridSearch.best_score_,
+        best_params=gridSearch.best_params_,
+        cv_results=gridSearch.cv_results_
+    )
+
+    def build_base_model(self, class_weight='balanced', solver='liblinear',random_state=42):
+        """
+        factory method for building Sklean LinReg Model
+        :param class_weight:
+            If the data is imbalanced, consider setting class_weight='balanced’
+            or defining custom weights to improve the minority class performance.
+        :param solver:
+
+        :param random_state:
+
+        :return: an instance of a preconfigured LinReg model from sklearn
+        """
         return LogisticRegression(
             class_weight=class_weight, solver=solver, random_state=random_state
         )
+
+    def set_scalar(self):
+        """
+         Logistic Regression is sensitive to feature magnitude,
+         so apply standardization (e.g., StandardScaler) in a pipeline to help the optimizer converge efficiently.
+        :return: an instance of the StandardScaler
+        """
+        return StandardScaler()
 
     def dump_model(self, dump_to):
 

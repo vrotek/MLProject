@@ -5,6 +5,11 @@ from typing import List, Dict
 # Define an immutable value object (VO) for the Logistic Regression hyperparameter grid
 @dataclass(frozen=True)
 class LRParameterGrid:
+    """
+     Tuning hyperparameters like C (which controls regularization strength)
+     and choosing the right penalty and solver can drastically influence performance.
+    """
+
     # List of regularization strength values to try.
     # Lower values mean stronger regularization (e.g., C=0.01 penalizes large coefficients more than C=10).
     C_values: List[float]
