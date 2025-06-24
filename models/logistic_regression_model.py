@@ -1,7 +1,7 @@
 import os
 
 import pickle
-from typing import Dict
+from typing import Dict, List
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -12,6 +12,8 @@ from models.gridsearchCV_tuning_result_vo import GridSearchCVTuningResult
 
 
 class LogisticRegressionModel(Model):
+    tuned_models: Dict[str, LogisticRegression]
+    tuning_results: Dict[str, GridSearchCVTuningResult]
 
     def __init__(self, features, label):
 
@@ -20,13 +22,15 @@ class LogisticRegressionModel(Model):
         self.Xtest = None #features for testing
         self.Xtrain = None #features for training
 
-        self.model = self.build_base_model()
+        self.selected_model = self.build_base_model()
         self.scaler = self.set_scalar()
 
         self.split(features, label)
 
+        self.tuned_models: Dict[str, LogisticRegression] = {}
+        self.tuning_results: Dict[str, GridSearchCVTuningResult] = {}
+
     def split(self, features, label):
-        # === Train-test split ===
         X_train, X_test, self.Ytrain, self.Ytest = train_test_split(
             features, label, test_size=0.2, stratify=label, random_state=42
         )
@@ -36,53 +40,68 @@ class LogisticRegressionModel(Model):
         self.Xtest = self.scaler.transform(X_test)
 
     def train(self):
-        # === Train logistic regression ===
-        self.model.fit(self.Xtrain, self.Ytrain)
+        self.selected_model.fit(self.Xtrain, self.Ytrain)
+        return self.selected_model, self.Xtest, self.Ytest, self.scaler
 
-        return self.model, self.Xtest, self.Ytest, self.scaler
-
-    def tune(self, paramGrid: Dict) -> GridSearchCVTuningResult:
+    def tune(self, paramGrid: Dict, scoring_metrics: List[str]) -> List[GridSearchCVTuningResult]:
         """
-           Tunes the logistic regression model using grid search.
+        Tunes the logistic regression model using GridSearchCV for multiple scoring metrics.
 
-           Args:
-               paramGrid (Dict): Dictionary of hyperparameters to search over.
+        Args:
+            paramGrid (Dict): Dictionary of hyperparameters to search over.
+            scoring_metrics (List[str]): A list of scoring metric names (e.g. ['roc_auc', 'average_precision'])
 
-           Returns:
-               LogisticRegression: The best estimator found during tuning.
+        Returns:
+            List[GridSearchCVTuningResult]: A list of tuning results for each scoring metric.
         """
-        baseModel = self.build_base_model()
+        if not paramGrid:
+            raise ValueError("Parameter grid cannot be empty.")
+        if not scoring_metrics:
+            raise ValueError("You must specify at least one scoring metric.")
 
-        # Wrap in GridSearch
-        gridSearch = GridSearchCV(
-            estimator=baseModel,
-            param_grid=paramGrid,
-            cv=5,
-            scoring='roc_auc',
-            n_jobs=-1,
-            verbose=2,
-            return_train_score=True,
-        )
+        results = []
 
-        # Fit on training data
-        gridSearch.fit(self.Xtrain, self.Ytrain)
+        for scoring in scoring_metrics:
 
-        self.model = gridSearch.best_estimator_
+            baseModel = self.build_base_model()
 
-        return GridSearchCVTuningResult(
-        best_score=gridSearch.best_score_,
-        best_params=gridSearch.best_params_,
-        cv_results=gridSearch.cv_results_
-    )
+            gridSearch = GridSearchCV(
+                estimator=baseModel,
+                param_grid=paramGrid,
+                cv=5,
+                scoring=scoring,
+                n_jobs=-1,
+                verbose=2,
+                return_train_score=True,
+            )
 
-    def build_base_model(self, class_weight='balanced', solver='liblinear',random_state=42):
+            gridSearch.fit(self.Xtrain, self.Ytrain)
+
+
+            best_model = gridSearch.best_estimator_
+            self.tuned_models[scoring] = best_model
+
+            self.tuning_results[scoring] = GridSearchCVTuningResult(
+                test_case=scoring,
+                best_score=gridSearch.best_score_,
+                best_params=gridSearch.best_params_,
+                cv_results=gridSearch.cv_results_
+            )
+
+            results.append(self.tuning_results[scoring])
+
+        self.selected_model = self.tuned_models[scoring_metrics[0]]
+
+        return results
+
+    def build_base_model(self, class_weight='balanced', solver='liblinear', random_state=42):
         """
         factory method for building Sklean LinReg Model
         :param class_weight:
             If the data is imbalanced, consider setting class_weight='balanced’
             or defining custom weights to improve the minority class performance.
         :param solver:
-
+            liblinear: Generally the best for this type of use case
         :param random_state:
 
         :return: an instance of a preconfigured LinReg model from sklearn
@@ -99,6 +118,23 @@ class LogisticRegressionModel(Model):
         """
         return StandardScaler()
 
+    def select_model(self, key: str):
+        """
+        Sets the current model (`self.model`) to one of the tuned models
+        identified by the given scoring key.
+
+        Args:
+            key (str): The scoring key used during tuning (e.g., 'roc_auc', 'f1')
+
+        Raises:
+            ValueError: If the key is not found in tuned_models
+        """
+        if key not in self.tuned_models:
+            raise ValueError(
+                f"No model found for scoring key: '{key}'. Available keys: {list(self.tuned_models.keys())}")
+
+        self.selected_model = self.tuned_models[key]
+
     def dump_model(self, dump_to):
 
         os.makedirs(dump_to, exist_ok=True)
@@ -107,6 +143,6 @@ class LogisticRegressionModel(Model):
         scaler_path = os.path.join(dump_to, "logistic_scaler.pkl")
 
         with open(model_path, "wb") as f:
-            pickle.dump(self.model, f)
+            pickle.dump(self.selected_model, f)
         with open(scaler_path, "wb") as f:
             pickle.dump(self.scaler, f)

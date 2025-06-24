@@ -13,10 +13,13 @@ LR_GRID_PARAMS = LRParameterGrid(
     solvers=['liblinear']
 )
 
+# scoring metric you want to use in the tuning run
+SCORING_METRICS = ['roc_auc', 'average_precision', 'f1']
+
 # Activate this flag if you want tune your model on this run
 TUNING_RUN = True
 
-tuning_result = None
+tuning_results = []
 
 dataset = Dataset("transactions.csv.zip")
 dataset.extract_to(".")
@@ -27,14 +30,15 @@ X, y = dataset.split(df, "Class")
 linRegModel = LogisticRegressionModel(X, y)
 
 
-def tune_model() -> GridSearchCVTuningResult:
-    return linRegModel.tune(LR_GRID_PARAMS.to_grid())
+def tune_model():
+    return linRegModel.tune(LR_GRID_PARAMS.to_grid(),SCORING_METRICS)
 
 
 if (TUNING_RUN):
-    tuning_result = tune_model()
-    print(tuning_result)
-    tuning_result.export_csv("tuning_results/lr_results.csv")
+    tuning_results = tune_model()
+    for result in tuning_results:
+        print(result)
+        result.export_csv(f"tuning_results/lr_results_{result.test_case}.csv")
 
 
 def train_model():
