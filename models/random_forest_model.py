@@ -1,83 +1,58 @@
 import os
 import pickle
-from typing import Dict
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix
 
 from models.Model import Model
 
-
 class RandomForestModel(Model):
-
-    def __init__(self, features, label):
-        self.Ytrain = None
-        self.Ytest = None
-        self.Xtrain = None
-        self.Xtest = None
-
-        self.model = self.build_base_model()
+    def __init__(self, n_estimators=100, max_depth=None, random_state=42):
+        self.model = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=random_state,
+            n_jobs=-1
+        )
         self.scaler = StandardScaler()
 
-        self.split(features, label)
+    def train(self, X, y, enable_tuning=True):
+        X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=0.25, random_state=42)
 
-    def split(self, features, label):
-        self.Xtrain, self.Xtest, self.Ytrain, self.Ytest = train_test_split(
-            features, label, test_size=0.2, stratify=label, random_state=42
-        )
-        self.Xtrain = self.scaler.fit_transform(self.Xtrain)
-        self.Xtest = self.scaler.transform(self.Xtest)
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_val_scaled = self.scaler.transform(X_val)
+        X_test_scaled = self.scaler.transform(X_test)
 
-    def build_base_model(self):
-        return RandomForestClassifier(
-            n_estimators=200,
-            class_weight="balanced_subsample",
-            random_state=42,
-            n_jobs=-1,
-            max_depth=20,
-            min_samples_split=5,
-            min_samples_leaf=2,
-            max_features="sqrt"
-        )
+        if enable_tuning==True:
+            print("Tuning hyperparameters...")
+            param_grid = {
+                "n_estimators": [50, 100, 150],
+                "max_depth": [None, 10, 20],
+            }
+            grid_search = GridSearchCV(
+                estimator=self.model,
+                param_grid=param_grid,
+                cv=3,
+                n_jobs=-1,
+                verbose=2
+            )
+            grid_search.fit(X_train_scaled, y_train)
+            self.model = grid_search.best_estimator_
+            print("Best parameters found:", grid_search.best_params_)
+        else:
+            self.model.fit(X_train_scaled, y_train)
 
-    def train(self):
-        self.model.fit(self.Xtrain, self.Ytrain)
+        return self.model, X_test_scaled, y_test, self.scaler
 
-        y_pred_proba = self.model.predict_proba(self.Xtest)[:, 1]
-        y_pred = self.model.predict(self.Xtest)
+    def predict(self, X):
+        return self.model.predict(X)
 
-        print(f"AUC-ROC Score: {roc_auc_score(self.Ytest, y_pred_proba):.4f}")
-        print("Classification Report:\n", classification_report(self.Ytest, y_pred))
-        print("Confusion Matrix:\n", confusion_matrix(self.Ytest, y_pred))
+    def predict_proba(self, X):
+        return self.model.predict_proba(X)
 
-        return self.model, self.Xtest, self.Ytest, self.scaler
-
-    def tune(self, paramGrid: Dict):
-        gridSearch = GridSearchCV(
-            estimator=self.model,
-            param_grid=paramGrid,
-            cv=5,
-            scoring="roc_auc",
-            n_jobs=-1,
-            verbose=2,
-            return_train_score=True
-        )
-        gridSearch.fit(self.Xtrain, self.Ytrain)
-        print(f"[Tuning] Best ROC AUC: {gridSearch.best_score_:.4f}")
-        print(f"[Tuning] Best parameters: {gridSearch.best_params_}")
-        self.model = gridSearch.best_estimator_
-        return self.model
-
-    def dump_model(self, dump_to):
-        os.makedirs(dump_to, exist_ok=True)
-
-        model_path = os.path.join(dump_to, "rf_model.pkl")
-        scaler_path = os.path.join(dump_to, "rf_scaler.pkl")
-
-
-        with open(model_path, "wb") as f:
+    def dump_model(self, model_path, scaler_path):
+        with open(model_path, 'wb') as f:
             pickle.dump(self.model, f)
-        with open(scaler_path, "wb") as f:
+        with open(scaler_path, 'wb') as f:
             pickle.dump(self.scaler, f)
