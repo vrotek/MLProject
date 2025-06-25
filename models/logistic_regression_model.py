@@ -17,10 +17,10 @@ class LogisticRegressionModel(Model):
 
     def __init__(self, features, label):
 
-        self.Ytest = None #Label for testing
-        self.Ytrain = None #Label for training
-        self.Xtest = None #features for testing
-        self.Xtrain = None #features for training
+        self.Ytest = None # Label for testing
+        self.Ytrain = None # Label for training
+        self.Xtest = None # features for testing
+        self.Xtrain = None # features for training
 
         self.selected_model = self.build_base_model()
         self.scaler = self.set_scalar()
@@ -35,7 +35,7 @@ class LogisticRegressionModel(Model):
             features, label, test_size=0.2, stratify=label, random_state=42
         )
 
-        # === Feature scaling ===
+        # Features get transformed to prevent large-value features from dominating small-value features (avoid bias)
         self.Xtrain = self.scaler.fit_transform(X_train)
         self.Xtest = self.scaler.transform(X_test)
 

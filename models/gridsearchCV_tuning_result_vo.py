@@ -29,7 +29,7 @@ class GridSearchCVTuningResult:
         param_str = "\n".join([f"  {k}: {v}" for k, v in self.best_params.items()])
         return (
             f"[Tuning Result]:[{self.test_case}]\n"
-            f"Best ROC AUC Score: {self.best_score:.4f}\n"
+            f"Best Score: {self.best_score:.4f}\n"
             f"Best Hyperparameters:\n{param_str}"
         )
 
